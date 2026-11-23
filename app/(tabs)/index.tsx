@@ -9,6 +9,7 @@ import {
   dailyTotals,
   getSettings,
   latestWeight,
+  needsProfileSetup,
   setBodyWeight,
   targetsFor,
   waterOn,
@@ -33,6 +34,7 @@ export default function TodayScreen() {
   const water = useDb(() => waterOn(today));
   const todaysWeight = useDb(() => weightOn(today));
   const lastWeight = useDb(() => latestWeight(today));
+  const needsSetup = useDb(needsProfileSetup);
   const [weightText, setWeightText] = useState('');
 
   const u = settings.units;
@@ -49,6 +51,17 @@ export default function TodayScreen() {
     <Screen>
       <T v="label">{prettyDate(today)}</T>
 
+      {needsSetup && (
+        <Card style={{ borderColor: c.primary }}>
+          <T v="h2">Set up your profile</T>
+          <T muted>
+            Your calorie and macro targets are using placeholder values. Add your age, height, weight and goal
+            so they fit you.
+          </T>
+          <Button title="Set up profile" onPress={() => router.navigate('/(tabs)/profile')} />
+        </Card>
+      )}
+
       <Card style={{ alignItems: 'center', gap: 12 }}>
         <Ring value={totals.kcal} max={targets.kcal} color={c.kcal}>
           <T v="big">{r0(Math.abs(remaining))}</T>
@@ -62,9 +75,9 @@ export default function TodayScreen() {
           <T v="small" color={c.success}>
             🏋️ Training day: +{bonus} kcal added to your target
           </T>
-        ) : (
+        ) : settings.trainingBonusKcal > 0 ? (
           <T v="small">Rest day: log a workout to unlock +{settings.trainingBonusKcal} kcal</T>
-        )}
+        ) : null}
         <Row gap={12}>
           <MacroBar label="Protein" value={totals.protein} target={targets.protein} color={c.protein} />
           <MacroBar label="Carbs" value={totals.carbs} target={targets.carbs} color={c.carbs} />

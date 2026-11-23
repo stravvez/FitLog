@@ -69,6 +69,16 @@ export function setKv(key: string, value: string | null) {
   else db.runSync('INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)', [key, value]);
 }
 
+/** True until the user has saved their profile once (targets use defaults until then). */
+export function needsProfileSetup(): boolean {
+  return getKv('profile_saved') === null;
+}
+
+export function markProfileSaved() {
+  setKv('profile_saved', '1');
+  bumpData();
+}
+
 // ---------- Exercises ----------
 
 export interface Exercise {

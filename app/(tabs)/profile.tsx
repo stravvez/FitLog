@@ -8,6 +8,7 @@ import {
   DEFAULT_WEIGHT_KG,
   exportAll,
   getSettings,
+  markProfileSaved,
   latestWeight,
   nutritionProfile,
   saveSettings,
@@ -81,7 +82,11 @@ export default function ProfileTab() {
     if (p.restSeconds < 0 || p.restSeconds > 900) return Alert.alert('Rest timer should be 0–900 seconds');
     if (p.waterGoalMl < 500 || p.waterGoalMl > 8000) return Alert.alert('Water goal should be 500–8000 ml');
     if (weightEdit !== null && (!enteredWeight || enteredWeight <= 0)) return Alert.alert('Enter a valid weight');
+    if (loggedWeight === null && !enteredWeight) {
+      return Alert.alert('Enter your current weight', 'It is used for your calorie and protein targets.');
+    }
     saveSettings(p);
+    markProfileSaved();
     // Only log a weight if the user actually typed one here.
     if (weightEdit !== null && enteredWeight) {
       const kg = fromDisplayWeight(enteredWeight, p.units);
