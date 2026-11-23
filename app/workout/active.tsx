@@ -12,19 +12,60 @@ import { useColors } from '@/src/theme';
 
 const TYPE_LABEL = { normal: '', warmup: 'W', drop: 'D', failure: 'F' } as const;
 
-export default function ActiveWorkout() {
+/** Ticks every second on its own so the rest of the screen does not re-render. */
+function ElapsedTitle({ startedAt }: { startedAt: number }) {
   const c = useColors();
   const now = useNow();
-  const settings = useDb(getSettings);
-  const draft = useWorkout((s) => s.draft);
-  const restEndsAt = useWorkout((s) => s.restEndsAt);
-  const { rename, setRest, discard, finish } = useWorkout.getState();
-  const units = settings.units;
+  return <Text style={{ fontSize: 17, fontWeight: '700', color: c.text }}>{duration(now - startedAt)}</Text>;
+}
 
+function RestBanner() {
+  const c = useColors();
+  const now = useNow(250);
+  const restEndsAt = useWorkout((s) => s.restEndsAt);
+  const setRest = useWorkout((s) => s.setRest);
   const restLeft = restEndsAt ? (restEndsAt - now) / 1000 : 0;
+
   useEffect(() => {
     if (restEndsAt && restLeft <= 0) setRest(null);
   }, [restEndsAt, restLeft, setRest]);
+
+  if (!restEndsAt || restLeft <= 0) return null;
+
+  const adjust = (delta: number) => {
+    const next = restEndsAt + delta * 1000;
+    setRest(next);
+    scheduleRestAlert((next - Date.now()) / 1000);
+  };
+
+  return (
+    <Card style={{ backgroundColor: c.primarySoft, borderColor: c.primary }}>
+      <Row between>
+        <T v="h2" color={c.primary}>
+          Rest {clock(restLeft)}
+        </T>
+        <Row gap={4}>
+          <Button small variant="ghost" title="−15s" onPress={() => adjust(-15)} />
+          <Button small variant="ghost" title="+15s" onPress={() => adjust(15)} />
+          <Button
+            small
+            title="Skip"
+            onPress={() => {
+              setRest(null);
+              cancelRestAlert();
+            }}
+          />
+        </Row>
+      </Row>
+    </Card>
+  );
+}
+
+export default function ActiveWorkout() {
+  const settings = useDb(getSettings);
+  const draft = useWorkout((s) => s.draft);
+  const { rename, discard, finish } = useWorkout.getState();
+  const units = settings.units;
 
   if (!draft) {
     return (
@@ -43,9 +84,11 @@ export default function ActiveWorkout() {
     }
     const pending = draft.exercises.reduce((n, e) => n + e.sets.filter((s) => !s.done).length, 0);
     const save = () => {
-      cancelRestAlert();
       const id = finish(units);
-      if (id) router.replace({ pathname: '/workout/[id]', params: { id: String(id), fresh: '1' } });
+      if (id) {
+        cancelRestAlert();
+        router.replace({ pathname: '/workout/[id]', params: { id: String(id), fresh: '1' } });
+      } else Alert.alert('Nothing to save', 'Your ticked sets have no reps entered.');
     };
     if (pending > 0) {
       Alert.alert('Finish workout?', `${pending} unticked set(s) will be discarded.`, [
@@ -69,45 +112,18 @@ export default function ActiveWorkout() {
       },
     ]);
 
-  const adjustRest = (delta: number) => {
-    if (!restEndsAt) return;
-    const next = restEndsAt + delta * 1000;
-    setRest(next);
-    scheduleRestAlert((next - Date.now()) / 1000);
-  };
-
   return (
     <>
       <Stack.Screen
         options={{
-          title: duration(now - draft.startedAt),
+          headerTitle: () => <ElapsedTitle startedAt={draft.startedAt} />,
           headerRight: () => <Button small title="Finish" onPress={onFinish} />,
         }}
       />
       <Screen>
         <Input value={draft.name} onChangeText={rename} placeholder="Workout name" style={{ fontWeight: '700' }} />
 
-        {restEndsAt && restLeft > 0 ? (
-          <Card style={{ backgroundColor: c.primarySoft, borderColor: c.primary }}>
-            <Row between>
-              <T v="h2" color={c.primary}>
-                Rest {clock(restLeft)}
-              </T>
-              <Row gap={4}>
-                <Button small variant="ghost" title="−15s" onPress={() => adjustRest(-15)} />
-                <Button small variant="ghost" title="+15s" onPress={() => adjustRest(15)} />
-                <Button
-                  small
-                  title="Skip"
-                  onPress={() => {
-                    setRest(null);
-                    cancelRestAlert();
-                  }}
-                />
-              </Row>
-            </Row>
-          </Card>
-        ) : null}
+        <RestBanner />
 
         {draft.exercises.map((ex) => (
           <ExerciseBlock key={ex.key} ex={ex} units={units} restSeconds={settings.restSeconds} />
