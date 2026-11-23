@@ -11,16 +11,21 @@ import {
   MEALS,
   targetsFor,
 } from '@/src/db/queries';
-import { addDays, dateStr, prettyDate, r0 } from '@/src/lib/format';
+import { addDays, prettyDate, r0 } from '@/src/lib/format';
 import { sumMacros } from '@/src/lib/nutrition';
+import { useToday } from '@/src/lib/useToday';
 import { useDb } from '@/src/store/version';
 import { useWorkout } from '@/src/store/workout';
 import { useColors } from '@/src/theme';
 
 export default function FoodTab() {
   const c = useColors();
-  const [date, setDate] = useState(dateStr());
-  const isToday = date === dateStr();
+  const today = useToday();
+  // null = follow today (so the tab rolls over at midnight); a string = a day the user picked.
+  const [picked, setPicked] = useState<string | null>(null);
+  const date = picked ?? today;
+  const isToday = date === today;
+  const setDate = (d: string) => setPicked(d === today ? null : d);
   const hasDraft = useWorkout((s) => !!s.draft);
   const logs = useDb(() => logsForDate(date));
   const totals = useDb(() => dailyTotals(date));

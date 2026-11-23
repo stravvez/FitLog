@@ -12,8 +12,9 @@ import {
   weekAgo,
   weightsSince,
 } from '@/src/db/queries';
-import { addDays, dateStr, prettyDate, r0, r1, toDisplayWeight } from '@/src/lib/format';
+import { addDays, prettyDate, r0, r1, toDisplayWeight } from '@/src/lib/format';
 import { e1rm } from '@/src/lib/strength';
+import { useToday } from '@/src/lib/useToday';
 import { useDb } from '@/src/store/version';
 import { useColors } from '@/src/theme';
 
@@ -26,7 +27,7 @@ function movingAverage(values: number[], window = 7): number[] {
 
 export default function ProgressTab() {
   const c = useColors();
-  const today = dateStr();
+  const today = useToday();
   const { units } = useDb(getSettings);
   const weights = useDb(() => weightsSince(addDays(today, -90)));
   const kcal = useDb(() => kcalByDay(addDays(today, -13), today));

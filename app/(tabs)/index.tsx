@@ -15,14 +15,15 @@ import {
   weightOn,
   workoutsOnDate,
 } from '@/src/db/queries';
-import { dateStr, duration, fromDisplayWeight, parseNum, prettyDate, r0, toDisplayWeight } from '@/src/lib/format';
+import { duration, fromDisplayWeight, parseNum, prettyDate, r0, toDisplayWeight } from '@/src/lib/format';
+import { useToday } from '@/src/lib/useToday';
 import { useDb, useNow } from '@/src/store/version';
 import { useWorkout } from '@/src/store/workout';
 import { useColors } from '@/src/theme';
 
 export default function TodayScreen() {
   const c = useColors();
-  const today = dateStr();
+  const today = useToday();
   const draft = useWorkout((s) => s.draft);
   const now = useNow(30000);
   const settings = useDb(getSettings);
