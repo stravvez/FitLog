@@ -16,6 +16,7 @@ import {
 } from '@/src/db/queries';
 import { dateStr, fromDisplayWeight, parseNum, r0, toDisplayWeight, Units } from '@/src/lib/format';
 import { Activity, ACTIVITY_LABELS, bmr, dailyTargets, Goal, Sex, tdee } from '@/src/lib/nutrition';
+import { useDb } from '@/src/store/version';
 import { useColors } from '@/src/theme';
 
 const ACTIVITIES = Object.keys(ACTIVITY_LABELS) as Activity[];
@@ -24,10 +25,9 @@ export default function ProfileTab() {
   const c = useColors();
   const [initial] = useState(getSettings);
   const [s, setS] = useState<Settings>(initial);
-  const [weightText, setWeightText] = useState(() => {
-    const w = latestWeight();
-    return w ? String(toDisplayWeight(w, initial.units)) : '';
-  });
+  // null = not edited: show the latest logged weight live (it may change on the Today tab).
+  const [weightEdit, setWeightEdit] = useState<string | null>(null);
+  const loggedWeight = useDb(() => latestWeight());
   const [text, setText] = useState({
     age: String(initial.age),
     height: String(initial.heightCm),
@@ -52,20 +52,22 @@ export default function ProfileTab() {
     restSeconds: Math.round(parseNum(text.rest) ?? s.restSeconds),
     waterGoalMl: Math.round(parseNum(text.water) ?? s.waterGoalMl),
   };
-  const enteredWeight = parseNum(weightText);
+  const weightText =
+    weightEdit ?? (loggedWeight !== null ? String(toDisplayWeight(loggedWeight, s.units)) : '');
+  const enteredWeight = weightEdit !== null ? parseNum(weightEdit) : null;
   const profile = {
     ...nutritionProfile(preview),
-    weightKg: enteredWeight ? fromDisplayWeight(enteredWeight, s.units) : (latestWeight() ?? DEFAULT_WEIGHT_KG),
+    weightKg:
+      enteredWeight && enteredWeight > 0
+        ? fromDisplayWeight(enteredWeight, s.units)
+        : (loggedWeight ?? DEFAULT_WEIGHT_KG),
   };
   const rest = dailyTargets(profile, false);
   const train = dailyTargets(profile, true);
 
   const changeUnits = (u: Units) => {
     if (u === s.units) return;
-    if (enteredWeight) {
-      const kg = fromDisplayWeight(enteredWeight, s.units);
-      setWeightText(String(toDisplayWeight(kg, u)));
-    }
+    if (enteredWeight) setWeightEdit(String(toDisplayWeight(fromDisplayWeight(enteredWeight, s.units), u)));
     set('units', u);
   };
 
@@ -74,11 +76,17 @@ export default function ProfileTab() {
     if (p.age < 13 || p.age > 100) return Alert.alert('Check your age');
     if (p.heightCm < 100 || p.heightCm > 250) return Alert.alert('Height should be in centimetres');
     if (p.fatPct < 0.15 || p.fatPct > 0.5) return Alert.alert('Fat % should be between 15 and 50');
+    if (p.proteinPerKg < 0.8 || p.proteinPerKg > 3.5) return Alert.alert('Protein should be 0.8–3.5 g per kg');
+    if (p.trainingBonusKcal < 0 || p.trainingBonusKcal > 1500) return Alert.alert('Training bonus should be 0–1500 kcal');
+    if (p.restSeconds < 0 || p.restSeconds > 900) return Alert.alert('Rest timer should be 0–900 seconds');
+    if (p.waterGoalMl < 500 || p.waterGoalMl > 8000) return Alert.alert('Water goal should be 500–8000 ml');
+    if (weightEdit !== null && (!enteredWeight || enteredWeight <= 0)) return Alert.alert('Enter a valid weight');
     saveSettings(p);
-    if (enteredWeight && enteredWeight > 0) {
+    // Only log a weight if the user actually typed one here.
+    if (weightEdit !== null && enteredWeight) {
       const kg = fromDisplayWeight(enteredWeight, p.units);
-      const current = latestWeight();
-      if (current === null || Math.abs(current - kg) > 0.05) setBodyWeight(dateStr(), kg);
+      if (loggedWeight === null || Math.abs(loggedWeight - kg) > 0.05) setBodyWeight(dateStr(), kg);
+      setWeightEdit(null);
     }
     Alert.alert('Saved', 'Your targets have been updated.');
   };
@@ -124,7 +132,7 @@ export default function ProfileTab() {
         <Row>
           <Input label="Age" keyboardType="number-pad" value={text.age} onChangeText={setT('age')} />
           <Input label="Height (cm)" keyboardType="decimal-pad" value={text.height} onChangeText={setT('height')} />
-          <Input label={`Weight (${s.units})`} keyboardType="decimal-pad" value={weightText} onChangeText={setWeightText} />
+          <Input label={`Weight (${s.units})`} keyboardType="decimal-pad" value={weightText} onChangeText={setWeightEdit} />
         </Row>
       </Card>
 
