@@ -1,10 +1,11 @@
-import { useFonts } from 'expo-font';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { useState } from 'react';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
+import { migrate } from '@/src/db';
+import { setupNotifications } from '@/src/lib/restTimer';
+import { persistWorkoutDraft, useWorkout } from '@/src/store/workout';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -12,44 +13,35 @@ export {
 } from 'expo-router';
 
 export const unstable_settings = {
-  // Ensure that reloading on `/modal` keeps a back button present.
   anchor: '(tabs)',
 };
 
-// Prevent the splash screen from auto-hiding before asset loading is complete.
-SplashScreen.preventAutoHideAsync();
-
-export default function RootLayout() {
-  const [loaded, error] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-  });
-
-  // Expo Router uses Error Boundaries to catch errors in the navigation tree.
-  useEffect(() => {
-    if (error) throw error;
-  }, [error]);
-
-  useEffect(() => {
-    if (loaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [loaded]);
-
-  if (!loaded) {
-    return null;
-  }
-
-  return <RootLayoutNav />;
+function init() {
+  migrate();
+  useWorkout.getState().hydrate();
+  persistWorkoutDraft();
+  setupNotifications();
+  return true;
 }
 
-function RootLayoutNav() {
+export default function RootLayout() {
+  // Runs synchronously once, before the first screen renders.
+  useState(init);
   const colorScheme = useColorScheme();
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
+      <Stack screenOptions={{ headerBackButtonDisplayMode: 'minimal' }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="workout/active" options={{ title: 'Workout', gestureEnabled: false }} />
+        <Stack.Screen name="workout/[id]" options={{ title: 'Workout' }} />
+        <Stack.Screen name="exercise/[id]" options={{ title: 'Exercise' }} />
+        <Stack.Screen name="exercise-picker" options={{ title: 'Add exercises', presentation: 'modal' }} />
+        <Stack.Screen name="routine/[id]" options={{ title: 'Routine' }} />
+        <Stack.Screen name="food/add" options={{ title: 'Add food' }} />
+        <Stack.Screen name="food/scan" options={{ title: 'Scan barcode' }} />
+        <Stack.Screen name="food/amount" options={{ title: 'Amount' }} />
+        <Stack.Screen name="food/custom" options={{ title: 'Custom food' }} />
       </Stack>
     </ThemeProvider>
   );
