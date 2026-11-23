@@ -54,16 +54,50 @@ export function mapOffProduct(p: any): FoodInput | null {
   };
 }
 
-async function getJson(url: string, timeoutMs = 12000) {
+/** Thrown when Open Food Facts answers with an error status (e.g. 503 when overloaded). */
+export class OffHttpError extends Error {
+  constructor(public status: number) {
+    super(`Open Food Facts returned ${status}`);
+    this.name = 'OffHttpError';
+  }
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function getJsonOnce(url: string, timeoutMs: number) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const res = await fetch(url, { headers: HEADERS, signal: ctrl.signal });
-    if (!res.ok) throw new Error(`Open Food Facts returned ${res.status}`);
+    if (!res.ok) throw new OffHttpError(res.status);
     return await res.json();
   } finally {
     clearTimeout(t);
   }
+}
+
+/** OFF (especially search) intermittently returns 5xx/429; retry those once after a short pause. */
+async function getJson(url: string, timeoutMs = 12000) {
+  try {
+    return await getJsonOnce(url, timeoutMs);
+  } catch (e) {
+    if (e instanceof OffHttpError && (e.status >= 500 || e.status === 429)) {
+      await sleep(1200);
+      return getJsonOnce(url, timeoutMs);
+    }
+    throw e;
+  }
+}
+
+/** User-facing message for a failed lookup. */
+export function offErrorMessage(e: unknown): string {
+  if (e instanceof Error && e.name === 'AbortError') return 'Open Food Facts took too long to respond. Try again.';
+  if (e instanceof OffHttpError) {
+    return e.status >= 500 || e.status === 429
+      ? 'Open Food Facts is busy right now. Try again in a moment.'
+      : `Open Food Facts error (${e.status}).`;
+  }
+  return 'Could not reach Open Food Facts. Check your connection.';
 }
 
 /** Returns null when the product is unknown or has no nutrition data. */
