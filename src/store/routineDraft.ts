@@ -4,9 +4,11 @@ import type { RoutineItem } from '@/src/db/queries';
 
 /** Editing state for the routine editor, shared with the exercise picker. */
 interface RoutineDraftState {
+  /** Which editor screen instance owns this state; guards against showing stale data. */
+  session: string | null;
   name: string;
   items: RoutineItem[];
-  reset: (name: string, items: RoutineItem[]) => void;
+  reset: (session: string, name: string, items: RoutineItem[]) => void;
   setName: (name: string) => void;
   add: (ex: { id: number; name: string }[]) => void;
   update: (index: number, patch: Partial<RoutineItem>) => void;
@@ -15,9 +17,10 @@ interface RoutineDraftState {
 }
 
 export const useRoutineDraft = create<RoutineDraftState>((set) => ({
+  session: null,
   name: '',
   items: [],
-  reset: (name, items) => set({ name, items }),
+  reset: (session, name, items) => set({ session, name, items }),
   setName: (name) => set({ name }),
   add: (ex) =>
     set((s) => ({

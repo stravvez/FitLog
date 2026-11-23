@@ -1,5 +1,5 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useId } from 'react';
 import { Alert } from 'react-native';
 
 import { Button, Card, Empty, Input, Row, Screen, T } from '@/src/components/ui';
@@ -20,15 +20,13 @@ function Stepper({ label, value, onChange, min = 1 }: { label: string; value: nu
 export default function RoutineEditor() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const isNew = id === 'new';
-  const { name, items, setName, update, remove, move } = useRoutineDraft();
+  const session = useId();
+  const { session: loadedFor, name, items, setName, update, remove, move } = useRoutineDraft();
 
   useEffect(() => {
-    if (isNew) useRoutineDraft.getState().reset('', []);
-    else {
-      const r = getRoutine(Number(id));
-      useRoutineDraft.getState().reset(r?.name ?? '', r?.items ?? []);
-    }
-  }, [id, isNew]);
+    const r = isNew ? null : getRoutine(Number(id));
+    useRoutineDraft.getState().reset(session, r?.name ?? '', r?.items ?? []);
+  }, [id, isNew, session]);
 
   const onSave = () => {
     if (!name.trim()) return Alert.alert('Give your routine a name');
@@ -49,6 +47,9 @@ export default function RoutineEditor() {
         },
       },
     ]);
+
+  // Until this screen has loaded its routine, the shared store may hold another routine.
+  if (loadedFor !== session) return null;
 
   return (
     <>
