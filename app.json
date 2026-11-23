@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "fitlog",
+    "name": "FitLog",
     "slug": "fitlog",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -35,7 +35,15 @@
         }
       ],
       "expo-sqlite",
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "FitLog uses the camera to scan food barcodes.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
