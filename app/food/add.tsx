@@ -1,11 +1,11 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, View } from 'react-native';
 
 import { Button, Chip, Empty, Input, ListItem, Row, T } from '@/src/components/ui';
 import { Food, Meal, MEAL_LABELS, recentFoods, searchLocalFoods, upsertFood } from '@/src/db/queries';
 import { r0 } from '@/src/lib/format';
-import { FoodInput, searchFoods } from '@/src/lib/off';
+import { FoodInput, offErrorMessage, searchFoods } from '@/src/lib/off';
 import { useDb } from '@/src/store/version';
 import { useColors } from '@/src/theme';
 
@@ -19,22 +19,28 @@ export default function AddFood() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<'recent' | 'search'>('recent');
+  // Ignore responses from searches that were superseded by a newer query.
+  const requestId = useRef(0);
 
   const local = useDb(() => (q.trim() ? searchLocalFoods(q) : []));
   const recent = useDb(() => recentFoods());
 
   const runSearch = async () => {
     if (q.trim().length < 2) return;
+    const id = ++requestId.current;
     setTab('search');
     setLoading(true);
     setError(null);
     try {
-      setOnline(await searchFoods(q));
+      const results = await searchFoods(q);
+      if (id === requestId.current) setOnline(results);
     } catch (e) {
-      setOnline([]);
-      setError(e instanceof Error && e.name === 'AbortError' ? 'Search timed out.' : 'Could not reach Open Food Facts. Check your connection.');
+      if (id === requestId.current) {
+        setOnline([]);
+        setError(offErrorMessage(e));
+      }
     } finally {
-      setLoading(false);
+      if (id === requestId.current) setLoading(false);
     }
   };
 
@@ -67,6 +73,9 @@ export default function AddFood() {
             onChangeText={(t) => {
               setQ(t);
               setOnline(null);
+              setError(null);
+              setLoading(false);
+              requestId.current++;
               if (t.trim()) setTab('search');
             }}
             returnKeyType="search"

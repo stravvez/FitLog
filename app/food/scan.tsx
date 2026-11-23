@@ -5,7 +5,7 @@ import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
 
 import { Button, Screen, T } from '@/src/components/ui';
 import { getFoodByBarcode, Meal, upsertFood } from '@/src/db/queries';
-import { fetchByBarcode } from '@/src/lib/off';
+import { fetchByBarcode, offErrorMessage } from '@/src/lib/off';
 
 export default function ScanBarcode() {
   const { meal, date } = useLocalSearchParams<{ meal: Meal; date: string }>();
@@ -42,8 +42,8 @@ export default function ScanBarcode() {
           onPress: () => router.replace({ pathname: '/food/custom', params: { meal, date, barcode: data } }),
         },
       ]);
-    } catch {
-      Alert.alert('Lookup failed', 'Could not reach Open Food Facts. Check your connection.', [
+    } catch (e) {
+      Alert.alert('Lookup failed', offErrorMessage(e), [
         { text: 'Try again', onPress: () => (handled.current = false) },
       ]);
     } finally {
